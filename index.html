@@ -1,0 +1,839 @@
+<!doctype html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+		<title>TAD-GAN_DSAIDIS</title>
+
+		<link rel="stylesheet" href="css/reset.css">
+		<link rel="stylesheet" href="css/reveal.css">
+		<link rel="stylesheet" href="css/theme/telecom.css">
+
+		<!-- Theme used for syntax highlighting of code -->
+		<link rel="stylesheet" href="lib/css/github.css">
+
+		<!-- Printing and PDF exports -->
+		<script>
+			var link = document.createElement( 'link' );
+			link.rel = 'stylesheet';
+			link.type = 'text/css';
+			link.href = window.location.search.match( /print-pdf/gi ) ? 'css/print/pdf.css' : 'css/print/paper.css';
+			document.getElementsByTagName( 'head' )[0].appendChild( link );
+		</script>
+	</head>
+	<body>
+		<div class="reveal">
+			<div class="slides">
+
+				<section class="cover" data-background="figures/background-blur.png"  data-state="no-title-footer no-progressbar has-dark-background">
+
+					<h2 id='coverh2'>TAD-GAN: a robust unsupervised time anomaly detection</h2>
+					<h1  id='title_seminar'> DSAIDIS (Axis 1) </h1>
+					<p id='coverauthors'>
+						Mathieu FONTAINE<br />
+						mathieu.fontaine@telecom-paris.fr
+					</p>
+					<p id="date">
+					May, 24th 2023
+					</p>
+					<p>
+					<img src="css/theme/img/logo-Telecom.svg" id="telecom" class="logo" alt="">
+					<aside class="notes">
+						<ul><li>Talk about time anomaly detection using GAN</li>
+									<li>The main goal is to provide an unsupervised TAD that works for various dataset</li>
+									<li>Fitting an implicit distribution may be a wise choice ? Let see ...</li>
+						</ul>
+					</aside>
+				</section>
+
+				<section class="cover" data-background="figures/background.png" data-state="no-title-footer no-progressbar has-dark-background">
+					<h2 id='coverh2'>I - Introduction</h2>
+					<aside class="notes">
+						<ul><li>Let me first define the context</li>
+						</ul>
+					</aside>
+				</section>
+
+				<section>
+					<h1>What is a time series ?</h1>
+					<center><img src="figures/time_series_1.png" width="60%"></center>
+					<ul>
+						<li>$\bold{X} = (\bold{x}^1, \dots,$ <font color="#D5A6BD">$\bold{x}^t$</font>$, \dots, \bold{x}^T) \in \mathbb{R}^{M \times T}$</li>
+						<li>$M$: number of sensors / measurements</li>
+						<li>$T$: number of time steps</li>
+					</ul>
+					<div class="remarque"  style="margin-top:0.8em;">
+						multivariate time series $\implies$ several synchronous measurement
+					</div>
+					<aside class="notes">
+						<ul><li>data acquired along time</li>
+							<li>In our case, with several sensors (that we suppose synchronous)</li>
+						</ul>
+					</aside>
+				</section>
+				<section>
+					<h1>Anomaly in time series: definition</h1>
+					<center><img src="figures/time_series_anomaly.png" width="60%"></center>
+					<ul>
+						<li>Given observed data $\bold{X}$</li>
+						<li>Find sequences ${\color{red}\bold{A}_{seq}} \triangleq \{{\color{red}\bold{a}^{(1)}_{seq, 1}}, \dots, {\color{red}\bold{a}^{(K)}_{seq, K}}\} $ showing unusual behavior</li>
+						<li>${seq, i}$ is the associated time indexes for the $i^{\text{th}}$ anomaly</li>
+					</ul>
+
+					<div class="remarque" style="margin-top:0.8em;">
+						In an industrial context, which machine learning framework may be suitable ?
+					</div>
+
+					<aside class="notes">
+						<ul><li>finding kind of continuous sequences of anomaly</li>
+							<li>what can be a good machine learning framework for such application ?</li>
+						</ul>
+					</aside>
+				</section>
+
+				<section>
+					<h1>Unsupervised setting for time anomaly detection (TAD) </h1>
+					<b>Unsupervised</b> approach $\rightarrow$ suitable in various real-world scenarios:
+					<p><ul>
+						<li>No identified "known anomalies" to train the model</li>
+						<li>Non availability of "normal baselines"</li>
+						$\quad \rightarrow$ signal that may include anomalies.
+						<li>No clear segmentation</li>
+						$\quad \rightarrow$ periodic signal (<em>e.g.</em> EEG, ECG $\texttt{[Qiu. 19]}$) OK... but otherwise ? 
+					</ul></p>
+
+					<div class="references" style="margin-top:0.8em;">
+					<ul>
+						<li>Qiu, J. et al. (2019). Kpi-tsad: A time-series anomaly detector for kpi monitoring in cloud applications. Symmetry.</li>
+					</ul>						
+					</div>
+					<aside class="notes">
+						<ul><li>indeed sometimes  anomalies are known but sometimes not ! (so not supervised)</li>
+							<li>sometimes the dataset includes anomalies (it is not the case in this study)</li>
+							<li>we do not always have a periodic data</li>
+						</ul>
+					</aside>
+				</section>
+				<section>
+					<h1>Unsupervised setting for time anomaly detection (TAD) </h1>
+					<b>Unsupervised</b> approach $\rightarrow$ suitable in various real-world scenarios:
+					<p><ul>
+						<li>No identified "known anomalies" to train the model</li>
+						<li>Non availability of "normal baselines"</li>
+						$\quad \rightarrow$ signal that may include anomalies.
+						<li>No clear segmentation</li>
+						$\quad \rightarrow$ periodic signal (<em>e.g.</em> EEG, ECG $\texttt{[Qiu. 19]}$) OK... but otherwise ? 
+					</ul></p>
+					
+					<div class="affirmation" style="margin-top:0.8em;">
+						Three main methodology family of unsupervised TAD:</br>
+						Proximity, <b>Prediction</b> and <b>Reconstruction</b>-based methods  
+					</div>
+
+					<div class="references" style="margin-top:0.8em;">
+					<ul>
+						<li>Qiu, J. et al. (2019). Kpi-tsad: A time-series anomaly detector for kpi monitoring in cloud applications. Symmetry.</li>
+					</ul>						
+					</div>
+					<aside class="notes">
+						<ul><li>indeed sometimes  anomalies are known but sometimes not ! (so not supervised)</li>
+							<li>sometimes the dataset includes anomalies (it is not the case in this study)</li>
+							<li>we do not always have a periodic data</li>
+							<li>We will briefly talk about the used methodology except the proximity based on more design of data depth, distance measure and so on</li>
+						</ul>
+					</aside>
+				</section>
+				<!-- <section>
+					<h1>Proximity-based anomaly detection</h1>
+					<h2>Method</h2>
+					<ul style="margin-top:0.8em;">
+						<li>distance measure to quantify similarities between objects</li>
+						<li>single data points for point anomalies</li>
+						<li>fixed length sequences of data points for collective anomalies</li>
+					</ul>
+					<div class="affirmation" style="margin-top:0.8em;">
+						Objects that are distant from others are considered anomalies
+					</div>
+				</section>
+
+				<section>
+					<h1>Proximity-based anomaly detection</h1>
+					<h2>Method</h2>
+					<ul style="margin-top:0.8em;">
+						<li>distance measure to quantify similarities between objects</li>
+						<li>single data points for point anomalies</li>
+						<li>fixed length sequences of data points for collective anomalies</li>
+					</ul>
+					<div class="affirmation" style="margin-top:0.8em;">
+						Objects that are distant from others are considered anomalies
+					</div>
+					<h2> Examples</h2>
+					<ul>
+						<li>K-Nearest Neighbor $[\texttt{Ang. 02}]$</li>
+						<li>Clustering-based local outlier factor (LOF) $[\texttt{He. 03}]$</li>
+					</ul>
+
+				<div class="references" style="margin-top:0.8em;">
+					<ul>
+						<li>Angiulli, F. et al. (2002). Fast outlier detection in high dimensional spaces, PKDD. </li>
+						<li>He, Z. et al. (2003). Discovering cluster-based local outliers, PRL.</li>
+					</ul>						
+					</div>
+				</section> -->
+
+				<section>
+					<h1>Prediction-based anomaly detection (1/2)</h1>
+					<center><img src="figures/prediction_based.png" width="75%"></center>
+					<h2>Method</h2>
+					<ul style="margin-top:0.8em;">
+						<li>learn predictive model to fit given time series data</li>
+						<li>use the model to predict future values</li>
+					</ul>
+					<div class="affirmation" style="margin-top:0.8em;">
+						$\text{pred}_{value} - \text{true}_{value} > \text{threshold}$ $\implies$ anomaly
+					</div>
+					<aside class="notes">
+						<ul><li>Consider a trained predictive model on non-anomaly data</li>
+							<li>we fit a part of the observed data and try to predict the following</li>
+							<li>the assumption is that : anomaly will be predicted very badly because too far from the model</li>
+						</ul>
+					</aside>
+				</section>
+
+
+				<section>
+					<h1>Prediction-based anomaly detection (2/2)</h1>
+					<h2>Examples</h2>
+					<ul>
+						<li>Statisticals Models</li>
+						$\quad \rightarrow$ ARIMA $\texttt{[Pen. 13]}$, FDA $\texttt{[Tor. 11]}$
+						<li>Deep Neural Network</li>
+						$\quad \rightarrow$ Long Short Term Memory (LSTM) technique $\texttt{[Hun. 18]}$</br>
+						$\quad \rightarrow$ Transformers-based </br>
+						$\quad \quad \triangleright$ Temporal Fusion Transformer $\texttt{[Lim 21]}$,  Autoformer $\texttt{[Wu 21]}$</br>
+					</ul>
+					<div class="references">
+						<ul>
+							<li>Pena, E. H.  et al. (2013). Anomaly detection using forecasting methods arima and hwds, SCCC.</li>
+							<li>Torres, J. M.  et al. (2011). Detection of outliers in gas emissions from urban areas using functional data analysis, JHM.</li>
+							<li>Hundman, K.  et al. (2018). Detecting Spacecraft Anomalies Using LSTMs and Nonparametric Dynamic Thresholding, SIGKDD.</li>
+							<li>Lim, B. et al. (2021). Temporal fusion transformers for interpretable multi-horizon time series forecasting, IJF.</li>
+							<li>Wu, H. et al. (2021). Autoformer: Decomposition transformers with auto-correlation for long-term series forecasting, ANIPS.</li>
+						</ul>
+					</div>
+					<aside class="notes">
+						<ul><li>This version of ARIMA was "fine tuned" to work better on anomaly detection </li>
+							<li>Autoformer make use of autocorrelation estimation in the head attention to solve the problem of "sparse version of point-wise self attentions"</li>
+						</ul>
+					</aside>
+				</section>
+
+
+				<section>
+					<h1>Reconstruction-based anomaly detection (1/2)</h1>
+					<center><img src="figures/reconstruction_based.png" width="75%"></center>
+					<h2>Method</h2>
+					<ul>
+						<li>learn a model to capture a low-dimensional representation <font color="#9900FF">$\bold{Z}$</font> of time series <font color="#94C175">$\bold{X}$</font></li>
+						<li>create a synthetic reconstruction <font color="#A4C2F4">$\hat{\bold{X}}$</font> of the data from <font color="#9900FF">$\bold{Z}$</font> </li>
+					</ul>
+					<div class="affirmation" style="margin-top:0.8em;">
+						<font color="#D76969">$d(\bold{X}_{\text{seq}}, \hat{\bold{X}}_{\text{seq}}) > \text{threshold}$ </font> $\implies $ anomaly on indexes $\text{seq}$
+					</div>
+					<aside class="notes">
+						<ul><li>The assumption here is that the latent space reflects the important characteristic of the normal dataset </li>
+							<li>The anomaly sequence is then supposed to produce a bad reconstruction because they lose information in the latent space</li>
+						</ul>
+					</aside>
+				</section>
+				<section>
+					<h1>Reconstruction-based anomaly detection (2/2)</h1>
+					<h2 style="margin-top:-0.0em;">Examples</h2>
+					<ul>
+						<li>Machine Learning Approach</li>
+						$\quad \rightarrow$ Principal Component Analysis (PCA) $[\texttt{Rin. 07}]$
+						<li>Auto-encoders (AE)</li>
+						$\quad \rightarrow$ AE & variational AE $[\texttt{An 15}]$ for TAD
+						<li>LSTM</li>
+						$\quad \rightarrow$ LSTM Encoder-Decoder $[\texttt{Mal. 16}]$
+						<li>Diffusion Models</li>
+						$\quad \rightarrow$ <b>(NOT times series)</b> Medical anomaly detection $[\texttt{Wol. 22, Mul. 22}]$
+						<li>Generative adversarial models (GAN)</li>
+						$\quad \rightarrow$ BeatGAN $[\texttt{Zho. 19}]$, MAD-GAN $[\texttt{Li 19}]$, <b><font color="red">TAD-GAN</font> $[\texttt{Gei. 20}]$</b>
+					</ul>
+					<div class="references">
+						<ul>
+							<li>Ringberg, H. et al. (2007). Sensitivity of PCA for traffic anomaly detection, ACM SIGMETRICS.</li>
+							<li>An, J. et al. (2015). Variational autoencoder based anomaly detection using reconstruction probability, IE.</li>
+							<li>Malhotra, P. et al. (2016). LSTM-based encoder-decoder for multi-sensor anomaly detection, ICML.</li>
+							<li>Wolleb, J. et al. (2022). Diffusion models for medical anomaly detection, MICCAI.</li>
+							<li>Müller-Franzes, G. et al. (2022). Diffusion Probabilistic Models beat GANs on Medical Images, CVPR.</li>
+							<li>Zhou, B. et al. (2019). BeatGAN: Anomalous Rhythm Detection using Adversarially Generated Time Series, IJCAI.</li>
+							<li>Li, D. et al. (2019). MAD-GAN: Multivariate anomaly detection for time series data with GAN, ICANN. </li>
+							<li><b>Geiger, A. et al. (2020). Tadgan: Time series anomaly detection using generative adversarial networks, ICBD.</b></li>
+						</ul>
+					</div>
+					<aside class="notes">
+						<ul><li>the Diffusion models aims to model the way how a data get diffused until reaching a certain noise</li>
+							<li>In Medical anomaly detection, they use a Denoising Diffusion Implicit models to create an "healthy " output image </li>
+						</ul>
+					</aside>
+				</section>
+				<section>
+					<h1>Outlines</h1>
+					<h2>I - Introduction</h2>
+					<h2>II - TAD-GAN</h2>
+					<h3>$\quad$ II.A - GAN and extensions</h3>
+					<h3>$\quad$II.B - TAD-GAN in a nutshell</h3>
+					<h2>III - Anomaly detection process for TAD-GAN</h2>
+					<h2>IV - Experiences</h2>
+					<h2>V - Conclusion</h2>
+				</section>
+				<section class="cover" data-background="figures/background.png" data-state="no-title-footer no-progressbar has-dark-background">
+					<h2 id='coverh2'>II.A - Generative adversarial networks and extensions</h2>
+					</section>
+					<section>
+						<h1>General Definition (1/2)</h1>
+						<center><img src="figures/gan_overview.png" width="65%"></center>
+						<ul>
+							<li>Generator: $\mathcal{G}(z)$ intended to come from $\mathbb{P}_X$ (trained to fool the critics $\mathcal{C}_x$) </li>
+							<li>Discriminator: tell if $\mathcal{G}(z)$ is real/fake ? (trained using <font color="#94C175">$\bold{X}$</font> and answering "real") </li>
+						</ul>
+						<div class="affirmation">
+							A common loss (based on zero-sum game) is designed:
+							$$
+							\mathcal{L} = \mathbb{E}_{x \in \mathbb{P}_{\bold{X}}}[\log(\mathcal{C}_x(x))] + \mathbb{E}_{z \in \mathbb{P}_{\bold{Z}}}[\log\left(1-\mathcal{C}_x(\mathcal{G}(z))\right)]
+							$$
+						</div>
+
+						<div class="references" style="margin-top:1em;">
+						<ul>
+							<li>Goodfellow I.J et al. (2014). Generative Adversarial Networks, NEURIPS.</li>
+						</ul>
+					</div>
+					</section>
+
+					<section>
+						<h1>General Definition (2/2)</h1>
+						<h2>Summary of the training procedure</h2>
+						<ul>
+							<li>$\{z_k\}_{k=1}^{K}, \{x_k\}_{k=1}^{K}$: samples from $\mathbb{P}_{\bold{Z}}$ and $\mathbb{P}_{\bold{X}}$ respectively.</li>
+							<li> $\Theta_{\mathcal{C},x}$ and $\Theta_{\mathcal{G}}$ the parameters of $\mathcal{C}_x$ and $\mathcal{G}$ respectively.</li>
+						</ul></br>
+						<ol style="margin-top:0.5em;">
+							<li style="margin-bottom:0.4em;">Compute $P$ times (at each iteration, new $\{z_k\}_{k=1}^{K}, \{x_k\}_{k=1}^{K}$)
+								<span style="margin-left:2em;">
+									$\nabla_{\Theta_{\mathcal{C},x}}\frac{1}{K}\sum_{k} [\log(\mathcal{C}_x(x_k)) 
+									+ \log\left(1-\mathcal{C}_x(\mathcal{G}(z_k))\right)] \quad  \texttt{(Critics training)}$
+								</span>
+							$\quad \quad \rightarrow$ backpropagation along $\Theta_{\mathcal{C},x}$
+							</li>
+							<li>
+								Compute (with new $\{z_k\}_{k=1}^{K}$):
+								<span style="margin-left:2em;">
+									$\nabla_{\Theta_{\mathcal{G}}}\frac{1}{K}\sum_{k} [
+									\log\left(1-\mathcal{C}_x(\mathcal{G}(z_k))\right)] \qquad\qquad\qquad~~  \texttt{(Generator training)}$
+								</span>
+								$\quad \quad \rightarrow$ backpropagation along $\Theta_{\mathcal{G}}$
+							</li>
+							<li>
+								Repeat i. and ii. many times (at least, to be close to Nash Equilibrium)
+							</li>
+						</ol>
+						<h2>Pros & Cons</h2>
+						<ul>
+							<li style="color:green;"> Can approach any implicit distribution if well tuned and trained</li>
+							<li style="color:green;">in other way, may generate well data close to $\bold{X}$</li>
+							<li style="color:red;">Hard to train in practice (instability, very poor convergence etc.)</li>
+						</ul>
+					</section>
+					<section>
+						<h1>Wasserstein Extension</h1>
+						<h2>Definition</h2>
+						<ul>
+							<li>A way to deal with "gradient explosion" using $\mathcal{W}$ the Wasserstein-1 distance</li>
+							<li>Under some conditions, if  $\mathcal{G}$ is locally Lipschitz, then
+								$\mathcal{W}(\mathbb{P}_{\bold{X}}, \mathbb{P}_{\bold{Z}})$ is differentiable
+							</li>
+							<li>The objective becomes (using Kantorovich-Rubinstein duality):
+							</li>
+
+							<span style="margin-left:8em;">
+								$\underset{\mathcal{G}}{\min}
+								  \underset{\mathcal{C}_x \in \mathscr{L}_{x}^{1}}{\max} \underbrace{\left(
+								  \mathbb{E}_{x \in \mathbb{P}_{\bold{X}}}[\mathcal{C}_x(x)] - \mathbb{E}_{z \in \mathbb{P}_{\bold{Z}}}[\mathcal{C}_x(\mathcal{G}(z))] 
+								  \right)}_{\triangleq \mathcal{L}_{\mathcal{W}}} 
+								  $
+							</span>
+							<li>$\mathscr{L}_{x}^{1}$: $1$-Lipschitz function.</li>
+						</ul>
+						<h2>New Procedure</h2>
+						<ul>
+							<li>Replace the previous loss $\mathcal{L}$ with $\mathcal{L}_{\mathcal{W}}$</li>
+							<li>clip $\Theta_{\mathcal{C}_x}$ between small values </li>
+						</ul>
+						<div class="references" style="margin-top:1em;">
+						<ul>
+							<li>Arjovsky, M. et al. (2017). Wasserstein gan, ICML.</li>
+						</ul>
+					</div>
+					<aside class="notes">
+						<ul><li>$\Theta_{\mathcal{C}_x}$ in a compact space is a solution</li>
+							<li>clip $\Theta_{\mathcal{C}_x} \in [0.01,0.01]$ after each gradient update</li>
+						</ul>
+					</aside>
+					</section>
+					<section>
+					   <h1>Multivariate anomaly detection: MAD-GAN (1/3)</h1>
+					   <h2>Generalities</h2>
+					   <ul>
+						<li>Take into account the intercorrelation between sensors for TAD + GAN</li>
+						<li>LSTM for both the critics $\mathcal{C}_x$ and the generator $\mathcal{D}$</li>
+						<li>Use "normal data" for training and compute a "residual reconstruction error"</li>
+					</ul>
+					   <h2>Data Pre-processing</h2>
+					   <ul>
+						<li> $M$, $T$  measurements and time step respectively</li>
+						<li>sub-sequences of $\bold{X} \in \mathbb{R}^{M \times T}$ with <em>sliding window</em> of length $s_w$ and <em>step size</em> $s_s$</li>
+						$\quad \rightarrow$ results in $\bold{\tilde{X}}_{s,w} = \{\tilde{\bold{X}}_i\}_{i=1}^{I}$ where $I=s_s^{-1}(T-s_w), \tilde{\bold{X}}_i \in \mathbb{R}^{M \times s_w}$
+					</ul>
+					<center><img src="figures/sliding_window.png" width="52%"></center>
+					</section>
+					<section>
+						<h1>Multivariate anomaly detection: MAD-GAN (2/3)</h1>
+						Training procedure $\rightarrow$ as a "usual" GAN on $\bold{\tilde{X}}^{\text{train}}_{s,w} \in \mathbb{R}^{M \times I_1 \times s_w}$ <br>
+						For the sake of clarity, $M=1$ and $s,w$ are omitted.
+						<h2>Test Procedure</h2>
+						two losses on $\bold{\tilde{X}}\in \mathbb{R}^{I_2 \times s_w}$
+						  with  $\tilde{x}^{\tau}_{i} \in \mathbb{R}, \forall (\tau,i) \in \llbracket 1, s_w \rrbracket \times \llbracket 1, I_2 \rrbracket$:<br>
+						<ul>
+							<li> <b>Critic loss</b> : $\mathcal{L}_{\mathcal{C}_x}^{\tau}=\mathcal{C}_x(\tilde{\bold{x}}^{\tau}) \in \mathbb{R}^{I_2}$</li>
+							<li><b>Residual loss</b> between $\bold{\tilde{X}}$ and $\mathcal{G}(Z^k)$:</li>
+							$\quad \rightarrow$ sample $Z^1$ to get a random $\mathcal{G}(Z^1) \\$
+							$\quad \rightarrow$ iteratively sample update with the gradient obtained from $\epsilon\\$
+							<center>$$
+							\underset{Z_k}{\min ~}\epsilon(\bold{\tilde{X}} , \mathcal{G}(Z^k)) = 1- \mathrm{Cov}(\bold{\tilde{X}}, \mathcal{G}(Z^k))
+							$$</center>
+							$\quad \rightarrow$ compute the residual error $\mathcal{L}_\mathcal{R}$ (point-wise)
+							<center>$$
+							\mathcal{L}_{\mathcal{R}}^{\tau} =  |\tilde{\bold{x}}^{\tau} - \mathcal{G}(Z^{k,\tau})| \in \mathbb{R}^{I_2}
+							$$</center>
+							<li>The <b>Anomaly Detection Loss (ADL)</b> is given for $\tau \in \llbracket 1, s_w \rrbracket$ by: </li>
+							<center>$$
+							\mathcal{L}_{\text{An}}^{\tau} = \lambda \mathcal{L}_{\mathcal{C}_x}^{\tau} + (1-\lambda)\mathcal{L}_{\mathcal{R}}^{\tau} \in \mathbb{R}^{I_2}
+							$$</center>
+						</ul>
+					 </section>
+					 <section>
+						<h1>Multivariate anomaly detection: MAD-GAN (3/3)</h1>
+						<h2>Discrimination and Reconstruction Anomaly Score (DR-Score)</h2>
+						<ul>
+							<li>We finally get $\{\mathcal{L}_{\text{An},i}^{\tau}\} \in \mathbb{R}^{I_2 \times s_w}$ ADL</li>
+							<li><b>DR-Score</b> (DRS) computed by mapping ADL to the original time series:</li><br>
+							<center>$$
+							DRS_t = \frac{\sum_{i+\tau = t} \mathcal{L}_{\text{An},i}}{\sharp(\{i, \tau \in {i + \tau = t}\})}
+							$$</center>
+						</ul>
+						<h2>Anomaly detection</h2>
+						<ul>
+							<li>The anomaly computed such as:</li>
+							<center>
+								$$
+								A_t^{\mathrm{test}} =
+								\begin{cases}
+								1, \quad \text{if } \mathbb{H}(DRS_t, 1) > \text{threshold} \\
+								0 \quad \text{otherwise}
+								\end{cases}
+								$$
+							</center>
+							<li>
+								$\mathbb{H} (., .)$ : cross-entropy error
+							</li>
+						</ul>
+						<div class="affirmation">
+							<ol>
+								<li>
+									Worst results than ARIMA on many real dataset !
+								</li>
+								<li>
+									Weaker point: the residual error + conventional GAN
+								</li>
+							</ol>
+						</div>
+					 </section>
+
+				<section class="cover" data-background="figures/background.png" data-state="no-title-footer no-progressbar has-dark-background">
+					<h2 id='coverh2'>II.B - TAD-GAN in a nutshell</h2>
+					</section>
+				<section>
+					<h1>Ingredients for a robust time reconstruction GAN</h1>
+					<ul>
+						<li>Two mapping functions : $\mathcal{E}:\bold{X} \to \bold{Z}$ and $\mathcal{G}: \bold{Z} \to \bold{X}$</li>
+						<li> We can reconstruct input times series: $\bold{x}^{t} \to \mathcal{E}(\bold{x}^{t}) \to \mathcal{G}(\mathcal{E}(\bold{x}^{t})) \approx \bold{x}^{t}$</li>
+						<li>$\mathcal{G}$ and $\mathcal{E}$ can be seen as a generator with their Critics $\mathcal{C}_x$ and $\mathcal{C}_z$</li>
+						
+					</ul>
+					<p>The "high level" objective of TAD-GAN consists in </p>
+					<ul>
+						<li>Two <b>Wassertein losses</b> (match $\mathcal{G}(\bold{Z})\leftrightarrow\bold{X}$ and $\mathcal{E}(\bold{X})\leftrightarrow\bold{Z}$) </li>
+						<li><b>Cycle consistency losses</b> to prevent a contradiction between $\mathcal{G}$ and $\mathcal{E}$ </li>
+					</ul>
+					<aside class="notes">
+						<ul><li>Good model cannot reconstruct anomalies (lose information during encoding)</li>
+							<li>Instead to use a residual error technique, let's consider the generative model  aka. Encoder from $\bold{Z}$ to $\bold{X}$</li>
+							<li>$\mathcal{C}_x$ goal: Distinguish between real data from $\bold{X}$ and generated ones from $\mathcal{G}(\bold{Z})$</li>
+							<li>$\mathcal{C}_z$ goal: Performance measurement of the mapping into latent space</li>
+						</ul>
+					</aside>
+				</section>
+				<section>
+					<h1>Cycle Consistency Principle</h1>
+					<ul><li>First introduced in $\texttt{[Zhu. 17]}$ for Image-to-image translation</li>
+					<li>mode collapse: several input images map to the same output image </li>
+					<li>Consistency loss: from one image to another one and coming back = same result</li>
+				</ul>
+				<center><img src="figures/cycleGAN.png" width="80%"></center>
+				<div class="references">
+				<ul>
+					<li>Zhu J.Y. et al. (2017) Unpaired image-to-image translation using cycle-consistent adversarial networks. ICCV </li>
+				</ul>
+
+				</div>
+				</section>
+				<section>
+					<h1>Full Objective Loss</h1>
+					It was finally considered:<br>
+					<ul>
+						<li>The two following Wasserstein objectives:</li>
+						<span style="margin-left:5em;">$\underset{\mathcal{G}}{\min}
+						\underset{\mathcal{C}_x \in \mathscr{L}_{x}^{1}}{\max} \underbrace{\left(
+						\mathbb{E}_{x \in \mathbb{P}_{\bold{X}}}[\mathcal{C}_x(x)] - \mathbb{E}_{z \in \mathbb{P}_{\bold{Z}}}[\mathcal{C}_x(\mathcal{G}(z))] 
+						\right)}_{\triangleq \mathcal{L}_{\mathcal{W},\mathcal{G}}} 
+						$</span><br><br>
+						<span style="margin-left:5em;">$\underset{\mathcal{E}}{\min}
+							\underset{\mathcal{C}_z \in \mathscr{L}_{z}^{1}}{\max} \underbrace{\left(
+							\mathbb{E}_{z \in \mathbb{P}_{\bold{Z}}}[\mathcal{C}_z(z)] - \mathbb{E}_{x \in \mathbb{P}_{\bold{X}}}[\mathcal{C}_z(\mathcal{E}(x))] 
+							\right)}_{\triangleq \mathcal{L}_{\mathcal{W},\mathcal{E}}} 
+							$</span>
+						<li>Only the consistency loss on reconstructed samples:<br>
+							<span style="margin-left:12em;">$
+								\mathcal{L}_{2,\mathcal{G}} = ||x-\mathcal{G}(\mathcal{E}(x))||_2 
+								$</span>
+
+						</li>
+					</ul>
+					<p>The Full objective loss $\mathcal{L}$ is then:</p>
+					<center>$
+					\mathcal{L} = \mathcal{L}_{2,\mathcal{G}} + \mathcal{L}_{\mathcal{W},\mathcal{G}} + \mathcal{L}_{\mathcal{W},\mathcal{E}}
+					$</center>
+					<aside class="notes">
+						<ul><li>just explained that the choice was empirical </li>
+						</ul>
+					</aside>
+				</section>
+				<section>
+					<h1> Training procedure </h1>
+					For simplifying, let's consider $M=1$ (univariate time series)
+					<ul>
+						<li>As in MAD-GAN we consider ($s,w$ are omitted for sake of clarity)</li>
+						$\bold{{X}} = \{\bold{x}_i\}_{i=1}^{I}$ where $I=s_s^{-1}(T-s_w), \bold{x}_i \in \mathbb{R}^{s_w}$
+						<li>We also consider $\bold{Z} = \{\bold{z}_i\}_{i=1}^{I}$ with $\bold{z}_i \in \mathbb{R}^{K}$ drawn from a Normal distribution </li>
+						<li>$\bold{X},\bold{Z}$ are feed to the GAN model and trained with the loss $\mathcal{L}$</li>
+					</ul>
+					<aside class="notes">
+						<ul><li>$K$ is the latent space dimension</li>
+						</ul>
+					</aside>	
+				</section>
+
+				<section>
+					<h1>Data Pre-Processing of the reconstruction</h1>
+					Again, we set $M=1$
+					<ul>
+						<li>Pre-processed test set $\bold{{X}} = \{\bold{x}_i\}_{i=1}^{I}$</li>
+						<li>Generate reconstructed sequences as $\bold{x}_i \to \mathcal{E}(\bold{x}_i) \to \mathcal{G}(\mathcal{E}(\bold{x}_i)) = \hat\bold{x}_i$</li>
+						<li>We get a collection  for a time point $t, \tilde{\bold{x}}^t \triangleq \{\hat x_i^\tau, i+\tau=t\}$</li>
+						<li>Take the median on each $\tilde{\bold{x}}^t$ to keep the reconstructed value $\hat{x}^t \triangleq \mathbb{M}[\tilde{\bold{x}}^t]$</li>
+						<li>The reconstructed time series is $(\hat{x}^1, \dots, \hat{x}^T)$ </li>
+						<br>
+						<center><img src="figures/median_process.png" width="30%"></center>
+					</ul>
+					<aside class="notes">
+						<ul><li>The Median was chosen also empirically instead of the mean</li>
+							<li>Produce better results on preliminary experiments</li>
+						</ul>
+					</aside>
+				
+				</section>
+				<section>
+					<h2>Data Pre-Processing of the Critics scores</h2>
+					<ul>
+						<li>The Critic $\bold{x}_i \to \mathcal{C}_x(\bold{x}_i) = \hat{\bold{c}}_i$ can directly serves as an anomaly score</li>
+						<li>Similarly at a time step $t$ we have some $\{\hat c_i^\tau, i+\tau=t\}$ </li>
+						<li>Kernel density estimation (KDE) is applied and the maximum value is selected</li>
+						<li>We get a sequence $(\hat{c}^1, \dots, \hat{c}^T)$ </li>
+					</ul><br><br>
+					<center><img src="figures/KDE_process.png" width="40%"></center>
+
+					
+				</section>
+				<section class="cover" data-background="figures/background.png" data-state="no-title-footer no-progressbar has-dark-background">
+					<h2 id='coverh2'>III - Anomaly detection process for TAD-GAN</h2>
+					</section>
+				<section>
+					<h1>Anomaly scores using reconstruction errors</h1>
+					<div class="multiCol" style="margin-top:-1em;">
+						<div class="col">
+							<h2>Point-wise difference</h2>
+					<ul>
+						<li>Most intuitive score: </li>
+						<center>$|x^t - \hat{x}^t|$</center>
+
+					</ul>
+					<img src="figures/pointwise.png">
+						</div>
+						<div class="col">
+							<h2>Area difference</h2>
+							<ul>
+								<li>Measure the similarity between local reigions.</li>
+								<li>defined as </li>
+								$\frac{1}{2l}\!\left|\int_{t-l}^{t+l}(x^t\!\!-\!\!\hat{x}^t) \mathrm{d}x\right|$
+							</ul>
+						</h2>
+						<img src="figures/area.png">
+						</div>
+						<div class="col">
+							<h2>Dynamic Time Warping (DTW)</h2>
+							<ul>
+								<li>Handle time shift issues</li>
+								<li>$\bold{X}=\{x_{t+k}\}_{k=-l+1}^{l} \\$ $\hat{\bold{X}}=\{\hat x_{t+k}\}_{k=-l+1}^{l}$</li>
+								<li>$\bold{W} \in \mathbb{R}^{L \times L}$ a matrix with distance between each point</li>
+								<li>The DTW is defined as follows:</li>
+								<center>
+									$$
+									s_t=\min_{\bold{W}}\left(\frac{1}{L^2}\sqrt{\sum_{l,l^\prime =1}^{L} [\bold{W}]_{l,l^\prime}}\right)
+									$$
+								</center>
+							</ul>
+							<img src="figures/DTW.png">
+						</div>
+
+					</div>
+					
+
+					<aside class="notes">
+						<ul><li>Depending on the dataset, we will see that the choice of such anomaly score is important</li>
+							<li>$L$ is the cardinal of $\bold{X}$ and $\hat\bold{X}$</li>
+						</ul>
+					</aside>
+				
+				</section>
+				<section>
+					<h1>Scores combination</h1>
+					<ul>
+						<li>$RE(x)$ the reconstruction error and $\mathcal{C}_x(x)$ the Critic output</li>
+						<li>High $RE(x)$ and Low $\mathcal{C}_x(x)$ indicate high anomaly scores</li>
+						<li>Mean and std. are computed and their $z$-scores $Z_{RE}(x), Z_{\mathcal{C}_x}(x)$ are used</li>
+					</ul>
+					<p>Two proposed combination:</p>
+					<ul>
+						<li>$\bold{a}(x) = \alpha Z_{RE}(x) + (1-\alpha)Z_{\mathcal{C}_x}(x) \quad \quad \texttt{(convex combination)}$</li>
+						<li>$\bold{a}(x) = \alpha Z_{RE}(x) \odot Z_{\mathcal{C}_x}(x) \qquad \qquad ~~~ \texttt{(product combination)}$</li>
+					</ul>
+				</section>
+
+				<section>
+					<h1>Locally adaptive thresholding</h1>
+					<ul>
+						<li>Sliding windows are used with $s_w = T/3$ and $s_s = T/30$</li>
+						<li>for each sliding window static threshold defined as $4$ std. from the mean.</li>
+						<li>anomaly score is larger than the threshold $\implies$ anomaly</li>
+						<li>continuous points yields the anomalous sequences $\{\bold{a}_{\text{seq}}^k\}_{k=1}^{K}$</li>
+					</ul>
+					<center><img src="figures/adaptive_thresholding.png" width="70%"></center>
+				</section>
+				<section>
+					<h1>Anomaly pruning $[\texttt{Hun. 18]}$</h1>
+					<ul>
+						<li>Technique to mitigate with false positives</li>
+						<li>Consider the maximum values $\{\bold{a}_{\max}^k\}_{k=1}^{K}$ in descending order</li>
+						<li>Compute the decrease percent $p^{k} = (a^{k-1}_{\max} - a^{k}_{\max})/a^{k-1}_{\max}$</li>
+						<li>When the first $p^i < \text{threshold} = 0.1$ the sequence is normal</li>
+						<li>It remains $\{\bold{a}_{\text{seq}}^{j}, 1 \leq j < i\}$ as anomalies</li>
+					</ul>
+					<div class="references">
+						<ul>
+							<li>Hundman K. et al. (2018). Detecting Spacecraft Anomalies Using LSTMs and Nonparametric Dynamic Thresholding, SIGKDD. </li>
+						</ul>
+					</div>
+					<aside class="notes">
+					<li>sliding windows can increase recall of anomaly but produce false positives</li>
+					</aside>
+				</section>
+				<section class="cover" data-background="figures/background.png" data-state="no-title-footer no-progressbar has-dark-background">
+					<h2 id='coverh2'>IV - Experiences</h2>
+					</section>
+				<section>
+					<h1>TAD-GAN Architecture and inputs</h1>
+					<ul>
+						<li>Inputs are times series of length $100$ and the latent space dimension is $20$</li>
+						<li>1 Layer of Bi-LSTM with $100$ hidden units for $\mathcal{E}$</li>
+						<li>2 layers of Bi-LSTM with $64$ hidden units for $\mathcal{G}$</li>
+						<li>1-D convolutional layer for both Critics</li>
+						<li>batch size of $64$</li>
+						<li>$2000$ iterations in total</li>
+					</ul>
+				</section>
+				<section>
+					<h1>Baselines</h1>
+					<ul>
+						<li><b>ARIMA</b> Learn autocollerations in the times series for future value prediction.
+						Point-wise prediction error is used as an anomaly score.</li> 
+						<li><b>HTM</b> encodes the current input to a hidden state and predicts the next
+							hidden state. Prediction errors are computed as the differences
+							between the predicted state and the true state</li>
+							<li><b>LSTM</b> Prediction based with a point-wise prediction errors used as anomaly detection</li>
+							<li><b>AutoEncoder</b> an LSTM autoencoder with a point-wise reconstruction error used</li>
+							<li><b>MAD-GAN</b>: already introduced. A multivariate time series reconstruction with GAN</li>
+							<li><b>Microsoft Azure Anomaly Detector</b>: use a spectral residual CNN (SR-CNN)</li>
+							<li><b>Amazon DeepAR</b>: use an autoregressive recurrent network.</li>
+					</ul>
+				</section>
+				<section>
+					<h1>Considered datasets</h1>
+					<h2>Data Preparation</h2>
+					<ul>
+						<li>the data is normalized</li>
+						<li>$s_w=100$ and $s_s=1$</li>
+					</ul>
+					<h2>Data presentation</h2>
+					<ul>
+						<li><b>spacecraft telemetry</b>: signal provided by the NASA</li>
+						<li><b>Yahoo S5</b>: $A1$ based on real production traffic, $A_2, \dots, A_4$ synthetic datasets.</li>
+						<li><b>Numenta Anomaly Benchmark (NAB)</b>: multiple times series data from various domains</li>
+					</ul>
+				</section>
+				<section>
+					<h1>Evaluation metric</h1>
+					<center><img src="figures/F1_score.png" width="60%"></center>
+					<div class="affirmation">
+						F1-score = $\frac{\text{TP}}{\text{TP}+0.5(\text{FN} + \text{FP})}$
+					</div>
+					<aside class="notes">
+						<li>TP: if a ground truth segment overlaps with the detected segment</li>
+						<li>FN: if the ground truth segment does not overlap any detected segment</li>
+						<li>FP: if a detected segment does not overlap any labeled anomalous region</li>
+						</aside>
+				</section>
+				<section>
+					<h1>Comparison with best settings for TAD-GAN</h1>
+					<img src="figures/results_comparison.png">
+					<ul>
+						<li><font color="green"> Overall have a lower std and better mean F1-score</font></li>
+						<li><span style="color:green;"> TAD-GAN highly outperformed MAD-GAN</span></li>
+						<li><span style="color:red;"> TAD-GAN is slightly outperformed by ARIMA on Yahoo synthetic data</span></li>
+					</ul>
+					<aside class="notes">
+						<li>but note that TAD-GAN is still competitive for synthetic Yahoo</li>
+						<li>Maybe because how the loss is compute for each \tau in each sliding windows is more suitable for periodicity</li>
+						<li>it may also explains why ARIMA which exploits the stationnarity works better on periodic dataset</li>	
+					</aside>
+				</section>
+				<section>
+					<h1>Ablation results</h1>
+					<img src="figures/results_variation.png">
+					<ul>
+						<li>Using only the Critic provides bad results</li>
+						<li>DTW outperforms the two other reconstruction types slightly</li>
+					</ul>
+					<aside class="notes">
+						<li>In this study, all possible combination of full anomaly objective and reconstruction error are considered</li>
+						<li>Multiplication in average a better option than convex one</li>
+						<li>Combining Critic + reconstruction error is not always the best choice</li>	
+					</aside>	
+				</section>
+				<section>
+					<h1>Baseline models in comparison to ARIMA</h1>
+					<center><img src="figures/results_improvement.png" width="60%"></center>
+
+					<aside class="notes">
+						<li>We clearly see that even with advanced DNN, ARIMA is still a competitive approach</li>
+						</aside>	
+				</section>
+				<section class="cover" data-background="figures/background.png" data-state="no-title-footer no-progressbar has-dark-background">
+					<h2 id='coverh2'>V - Conclusion</h2>
+				</section>
+
+				<section>
+					<h1>Takehome message</h1>
+					<ul>
+						<li>Design of TAD-GAN : a new reconstruction-based anomaly method</li>
+						<li>Outperforms MAD-GAN and is more stable</li>
+						<li>However, a specific setting of combination score to perform best </li>
+						<li>TAD-GAN is Outperformed on synthetic dataset that have seasonnality</li>
+					</ul>
+				</section>
+				<section>
+					<h1>Improvements</h1>
+					<ul>
+						<li>Some combination of Beat-GAN and TAD-GAN to deal with periodicity ?</li>
+						<li>Learn an "anomaly score"</li>
+						<li>Transfert Learning Technique for domain adaptation ?</li>
+					</ul>
+				</section>
+
+				<section>
+					<center style="margin-top:12em;"><div class="remarque">Thank you !</div></center>
+				</section>
+			</div>
+
+
+
+<div class='footer'>
+	<img src="css/theme/img/logo-Telecom.svg" alt="Logo"/>
+	<div id="middlebox">Time anomaly detection with GAN: a short review</div>
+	<ul>
+	</ul>
+</div>
+			</div>
+
+		</div>
+
+		<script src="js/reveal.js"></script>
+
+		<script>
+			// More info about config & dependencies:
+			// - https://github.com/hakimel/reveal.js#configuration
+			// - https://github.com/hakimel/reveal.js#dependencies
+			Reveal.initialize({
+				controls: false,
+				progress: true,
+				history: true,
+				center: false,
+				slideNumber: true,
+				minScale: 0.1,
+				maxScale: 5,
+				transition: 'none', //
+
+				dependencies: [
+					{ src: 'plugin/markdown/marked.js' },
+					{ src: 'plugin/markdown/markdown.js' },
+					{ src: 'plugin/notes/notes.js', async: true },
+					{ src: 'plugin/math-katex/math-katex.js', async: true },
+					{ src: 'plugin/reveald3/reveald3.js' },
+					{ src: 'plugin/highlight/highlight.js', async: true }
+				]
+			});
+			Reveal.configure({
+				keyboard: { 38:'next',
+				40:'prev',
+				66:'slide'
+
+  }
+			})
+		</script>
+
+	</body>
+
+</html>
